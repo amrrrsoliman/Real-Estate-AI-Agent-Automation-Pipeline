@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ar" class="h-full scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>آدم · مساعدك العقاري</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            arabic: ['"Noto Sans Arabic"', 'system-ui', 'sans-serif'],
+            ui: ['"Google Sans"', 'Inter', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            canvas: '#f5f8fc',
+            ink: '#0e172b',
+            mist: '#8b93a8',
+          },
+          boxShadow: {
+            orb: '0 0 60px rgba(59,130,246,0.35), 0 0 120px rgba(99,102,241,0.12)',
+          },
+        },
+      },
+    };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --orb-scale: 1;
+      --orb-hue: 210deg;
+      --orb-glow: 0.42;
+    }
+    body[data-orb-state="listening"] { --orb-hue: 190deg; --orb-glow: 0.5; animation: aura 4s ease-in-out infinite; }
+    body[data-orb-state="thinking"] { --orb-hue: 265deg; --orb-glow: 0.28; animation: think 7s ease-in-out infinite; }
+    body[data-orb-state="speaking"] { --orb-hue: 155deg; --orb-glow: 0.55; animation: speak 3.2s ease-in-out infinite; }
+    body[data-orb-state="idle"] { --orb-hue: 210deg; --orb-glow: 0.2; animation: drift 14s linear infinite; }
+
+    @keyframes aura {
+      0%, 100% { --orb-scale: 1; }
+      50% { --orb-scale: 1.08; }
+    }
+    @keyframes think {
+      0%, 100% { --orb-scale: 1; }
+      33% { --orb-scale: 1.06; }
+      66% { --orb-scale: 0.98; }
+    }
+    @keyframes speak {
+      0%, 100% { --orb-scale: 1.02; }
+      40% { --orb-scale: 1.14; }
+      60% { --orb-scale: 1.06; }
+    }
+    @keyframes drift {
+      0% { --orb-scale: 1; }
+      50% { --orb-scale: 1.03; }
+      100% { --orb-scale: 1; }
+    }
+
+    .orb-shell {
+      width: 152px;
+      height: 152px;
+      border-radius: 50%;
+      transform: scale(var(--orb-scale, 1));
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      background:
+        radial-gradient(circle at 30% 25%, hsla(var(--orb-hue), 90%, 88%, var(--orb-glow)) 0%, transparent 55%),
+        radial-gradient(circle at 70% 80%, hsla(calc(var(--orb-hue) + 40deg), 85%, 60%, calc(var(--orb-glow) * 0.8)) 0%, transparent 50%),
+        linear-gradient(135deg, hsl(var(--orb-hue), 45%, 12%) 0%, hsl(var(--orb-hue), 35%, 8%) 100%);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.08) inset,
+        0 12px 40px rgba(0,0,0,.25),
+        0 0 80px hsla(var(--orb-hue), 90%, 50%, calc(var(--orb-glow) * 0.5));
+      position: relative;
+      overflow: hidden;
+    }
+    .orb-shell::after {
+      content: '';
+      position: absolute;
+      inset: -40%;
+      background: conic-gradient(from 120deg, transparent, hsla(var(--orb-hue), 100%, 70%, 0.15), transparent);
+      animation: spin 12s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .chat-surface { background: linear-gradient(180deg, rgba(255,255,255,.72) 0%, rgba(245,248,252,.95) 100%); }
+    .drawer-surface { background: linear-gradient(160deg, #0c1220 0%, #141b2d 40%, #0f1626 100%); }
+
+    .fade-header { transition: opacity 0.6s ease, transform 0.6s ease; }
+    .fade-header.dim { opacity: 0.12; transform: translateY(-6px); pointer-events: none; }
+
+    .bubble-user { background: rgba(14, 23, 43, 0.06); border: 1px solid rgba(14, 23, 43, 0.06); }
+    .bubble-assistant { background: rgba(255,255,255,.88); border: 1px solid rgba(14, 23, 43, 0.05); }
+
+  #voiceHud {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  #transcript-container,
+  .transcript-container {
+    order: 1;
+    flex: 0 0 auto;
+    width: 100%;
+    max-height: 9rem;
+    min-height: 2.5rem;
+    z-index: 40;
+    margin-bottom: 0.25rem;
+  }
+  .voice-orb-stack {
+    order: 2;
+    position: relative;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+  .voice-orb-stack .orb-shell {
+    flex-shrink: 0;
+    pointer-events: none;
+  }
+  </style>
+</head>
+<body class="h-full min-h-screen bg-canvas text-ink font-arabic antialiased" data-orb-state="idle">
+  <div class="flex h-screen w-full flex-row overflow-hidden" dir="ltr">
+    <!-- Main chat (~60%) — LTR shell, RTL content -->
+    <main dir="rtl" class="relative flex min-w-0 flex-[1.55] flex-col border-r border-white/50 chat-surface md:flex-[3]">
+      <header class="relative shrink-0 px-6 pb-4 pt-10 md:px-10">
+        <h1 id="heroTitle" class="fade-header text-4xl font-semibold tracking-tight text-ink md:text-5xl">
+          أهلاً بك، أنا آدم
+        </h1>
+        <p id="heroSubtitle" class="fade-header mt-2 text-sm font-medium text-mist">وسيط عقاري رقمي — نتكلم عربي، ونلاقي لك البيت اللي يليق بيك.</p>
+      </header>
+
+      <div id="chatScroll" class="flex-1 space-y-4 overflow-y-auto px-5 pb-56 md:px-10">
+      </div>
+
+      <div
+        id="voiceHud"
+        class="pointer-events-none fixed bottom-6 left-1/2 z-20 w-full max-w-md -translate-x-1/2 px-4 md:right-[40%] md:left-auto md:translate-x-0 lg:right-[38%]">
+        <div
+          id="transcript-container"
+          class="transcript-container pointer-events-auto space-y-2 overflow-y-auto rounded-2xl border border-ink/10 bg-white/90 px-4 py-3 text-sm shadow-lg backdrop-blur-md"
+          dir="rtl"
+          aria-live="polite"></div>
+        <div class="voice-orb-stack pointer-events-auto">
+          <div class="orb-shell" aria-hidden="true"></div>
+          <button id="micBtn" type="button"
+            class="group flex h-12 items-center gap-3 rounded-full border border-ink/10 bg-white/90 px-5 text-sm font-semibold shadow-lg backdrop-blur-md transition hover:bg-white hover:shadow-xl">
+            <span id="micDot" class="h-2.5 w-2.5 rounded-full bg-neutral-400 transition-colors group-hover:bg-red-400"></span>
+            <span id="micLabel">تشغيل الميكروفون</span>
+          </button>
+          <span id="statusLine" class="text-xs font-medium text-mist">جاهز</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Property drawer (~40%) -->
+    <aside dir="rtl"
+      class="drawer-surface hidden w-[42%] max-w-xl min-w-[272px] shrink-0 flex-col border-l border-white/5 text-neutral-100 shadow-[-18px_0_48px_rgba(0,0,0,.18)] md:flex">
+      <div class="border-b border-white/5 px-8 py-8">
+        <h2 class="text-lg font-semibold tracking-wide text-neutral-50">العقارات المقترحة</h2>
+        <p class="mt-2 text-xs text-neutral-400 leading-relaxed">التطابق مع بحثك يظهر هنا بعد كل تقييم.</p>
+      </div>
+      <div id="propertyGrid" class="flex-1 overflow-y-auto px-6 py-6">
+        <p id="propertyPlaceholder" class="text-center text-sm text-neutral-500 leading-relaxed py-16">
+          بعد ما نناقش الميزانية والمنطقة، هتشوف بطاقات الترشيحات النظيفة هنا — موقع وسعر ومعلومات الأوض.
+        </p>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    (function () {
+      const WS_PATH = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/stream`;
+      let ws = null;
+      let micOn = false;
+      let audioCtx = null;
+      let mediaStream = null;
+      let scriptNode = null;
+      let micSource = null;
+      let resampleBuf = null;
+
+      const TARGET_RATE = 16000;
+      const TTS_SAMPLE_RATE = 16000; // must match backend pcm_16000 / SAMPLE_RATE
+      const OUT_CHUNK_SAMPLES = 3200; // ~200ms @ 16kHz
+      const chatScroll = document.getElementById('chatScroll');
+      const transcriptContainer = document.getElementById('transcript-container');
+      const micBtn = document.getElementById('micBtn');
+      const micLabel = document.getElementById('micLabel');
+      const micDot = document.getElementById('micDot');
+      const statusLine = document.getElementById('statusLine');
+      const propertyGrid = document.getElementById('propertyGrid');
+      const propertyPlaceholder = document.getElementById('propertyPlaceholder');
+
+      let ttsNextTime = 0;
+      let inTts = false;
+
+      function setOrb(state) {
+        document.body.dataset.orbState = state;
+      }
+
+      function setStatus(text) {
+        statusLine.textContent = text;
+      }
+
+      function dimHero() {
+        document.getElementById('heroTitle')?.classList.add('dim');
+        document.getElementById('heroSubtitle')?.classList.add('dim');
+      }
+
+      function appendBubble(role, text) {
+        dimHero();
+        const wrap = document.createElement('div');
+        wrap.className = 'flex ' + (role === 'user' ? 'justify-end' : 'justify-start');
+        const inner = document.createElement('div');
+        inner.className =
+          'max-w-[90%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm ' +
+          (role === 'user' ? 'bubble-user text-ink' : 'bubble-assistant text-ink');
+        inner.textContent = text;
+        wrap.appendChild(inner);
+        const target = transcriptContainer || chatScroll;
+        target.appendChild(wrap);
+        target.scrollTop = target.scrollHeight;
+      }
+
+      function formatPrice(n) {
+        if (n == null || n === '') return '—';
+        const num = Number(n);
+        if (!Number.isFinite(num)) return String(n);
+        return new Intl.NumberFormat('en-EG').format(num) + ' EGP';
+      }
+
+      function renderProperties(items) {
+        if (!items || !items.length) return;
+        propertyPlaceholder.style.display = 'none';
+        propertyGrid.querySelectorAll('.prop-card').forEach((el) => el.remove());
+        const frag = document.createDocumentFragment();
+        items.forEach((p) => {
+          const card = document.createElement('div');
+          card.className =
+            'prop-card mb-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm transition hover:border-white/20';
+          card.innerHTML = `
+            <div class="text-[11px] uppercase tracking-wider text-neutral-500">${(p.type || '').toString()}</div>
+            <div class="mt-1 line-clamp-2 text-sm font-semibold text-neutral-100">${(p.title || '').toString()}</div>
+            <div class="mt-2 text-xs text-neutral-400 line-clamp-2">${(p.location || '').toString()}</div>
+            <div class="mt-3 flex items-baseline justify-between gap-2">
+              <span class="text-lg font-semibold text-emerald-300/95">${formatPrice(p.price_egp)}</span>
+              <span class="text-xs text-neutral-500">${(p.bedroom || '—') + ' أوض'}</span>
+            </div>`;
+          frag.appendChild(card);
+        });
+        propertyGrid.appendChild(frag);
+      }
+
+      function ensureAudioContext() {
+        if (!audioCtx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new Ctx();
+        }
+        return audioCtx;
+      }
+
+      function playPcmArrayBuffer(arrayBuffer) {
+        if (!arrayBuffer || arrayBuffer.byteLength < 2) return;
+        const ctx = ensureAudioContext();
+        if (ctx.state === 'suspended') ctx.resume();
+        const evenBytes = arrayBuffer.byteLength - (arrayBuffer.byteLength % 2);
+        const int16 = new Int16Array(arrayBuffer, 0, evenBytes / 2);
+        enqueuePcmInt16(int16, TTS_SAMPLE_RATE);
+      }
+
+      function enqueuePcmInt16(int16, sampleRate) {
+        if (!int16 || int16.length === 0) return;
+        const ctx = ensureAudioContext();
+        if (ctx.state === 'suspended') ctx.resume();
+        const rate = sampleRate || TTS_SAMPLE_RATE;
+        const n = int16.length;
+        const buf = ctx.createBuffer(1, n, rate);
+        const ch = buf.getChannelData(0);
+        for (let i = 0; i < n; i++) ch[i] = int16[i] / 32768;
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        const now = ctx.currentTime;
+        if (ttsNextTime < now) ttsNextTime = now + 0.02;
+        const start = Math.max(ttsNextTime, now + 0.02);
+        src.start(start);
+        ttsNextTime = start + buf.duration;
+      }
+
+      function floatToInt16Downsample(input, inputRate) {
+        const ratio = inputRate / TARGET_RATE;
+        const outLen = Math.floor(input.length / ratio);
+        const out = new Int16Array(outLen);
+        for (let i = 0; i < outLen; i++) {
+          const srcIdx = Math.floor(i * ratio);
+          const v = Math.max(-1, Math.min(1, input[srcIdx]));
+          out[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+        }
+        return out;
+      }
+
+      function appendToResampleBuffer(floatChunk, inputRate) {
+        if (!resampleBuf || resampleBuf.inputRate !== inputRate) {
+          resampleBuf = { inputRate, accum: new Float32Array(OUT_CHUNK_SAMPLES * 4), accumPtr: 0 };
+        }
+        const { accum, accumPtr } = resampleBuf;
+        const need = accumPtr + floatChunk.length;
+        if (need > accum.length) {
+          const grown = new Float32Array(need * 2);
+          grown.set(accum.subarray(0, accumPtr));
+          resampleBuf.accum = grown;
+        }
+        resampleBuf.accum.set(floatChunk, resampleBuf.accumPtr);
+        resampleBuf.accumPtr += floatChunk.length;
+
+        const ratio = inputRate / TARGET_RATE;
+        const minIn = Math.ceil(OUT_CHUNK_SAMPLES * ratio);
+        const blocks = [];
+        while (resampleBuf.accumPtr >= minIn) {
+          const take = resampleBuf.accum.subarray(0, minIn);
+          const int16 = floatToInt16Downsample(take, inputRate);
+          blocks.push(int16);
+          resampleBuf.accum.copyWithin(0, minIn, resampleBuf.accumPtr);
+          resampleBuf.accumPtr -= minIn;
+        }
+        return blocks;
+      }
+
+      function sendPcmBlocks(blocks) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        for (const b of blocks) {
+          ws.send(b.buffer);
+        }
+      }
+
+      async function startMic() {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const ctx = ensureAudioContext();
+        if (ctx.state === 'suspended') await ctx.resume();
+        micSource = ctx.createMediaStreamSource(mediaStream);
+        const bufferSize = 4096;
+        scriptNode = ctx.createScriptProcessor(bufferSize, 1, 1);
+        const inputRate = ctx.sampleRate;
+        scriptNode.onaudioprocess = (e) => {
+          if (!micOn || !ws || ws.readyState !== WebSocket.OPEN) return;
+          const input = e.inputBuffer.getChannelData(0);
+          const copy = new Float32Array(input.length);
+          copy.set(input);
+          const blocks = appendToResampleBuffer(copy, inputRate);
+          sendPcmBlocks(blocks);
+        };
+        micSource.connect(scriptNode);
+        scriptNode.connect(ctx.destination);
+        micOn = true;
+        micLabel.textContent = 'إيقاف الميكروفون';
+        micDot.classList.remove('bg-neutral-400');
+        micDot.classList.add('bg-emerald-500');
+        setOrb('listening');
+        setStatus('جاري الاستماع…');
+        ws.send(JSON.stringify({ type: 'control', mic: true }));
+      }
+
+      function stopMic() {
+        micOn = false;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'control', mic: false }));
+        }
+        if (scriptNode) {
+          try {
+            scriptNode.disconnect();
+          } catch (_) {}
+          scriptNode = null;
+        }
+        if (micSource) {
+          try {
+            micSource.disconnect();
+          } catch (_) {}
+          micSource = null;
+        }
+        if (mediaStream) {
+          mediaStream.getTracks().forEach((t) => t.stop());
+          mediaStream = null;
+        }
+        resampleBuf = null;
+        micLabel.textContent = 'تشغيل الميكروفون';
+        micDot.classList.add('bg-neutral-400');
+        micDot.classList.remove('bg-emerald-500');
+        if (!inTts) setOrb('idle');
+        setStatus('جاهز');
+      }
+
+      function connectWs() {
+        return new Promise((resolve, reject) => {
+          if (ws && ws.readyState === WebSocket.OPEN) return resolve();
+          ws = new WebSocket(WS_PATH);
+          ws.binaryType = 'arraybuffer';
+
+          ws.onopen = () => {
+            setStatus('متصل');
+            resolve();
+          };
+
+          ws.onmessage = (ev) => {
+            if (ev.data instanceof ArrayBuffer) {
+              playPcmArrayBuffer(ev.data);
+              return;
+            }
+            if (ev.data instanceof Blob) {
+              ev.data.arrayBuffer().then(playPcmArrayBuffer).catch(console.error);
+              return;
+            }
+            try {
+              const msg = JSON.parse(ev.data);
+              if (msg.type === 'tts_start') {
+                inTts = true;
+                setOrb('speaking');
+                const ctx = ensureAudioContext();
+                if (ctx.state === 'suspended') ctx.resume();
+                ttsNextTime = ctx.currentTime + 0.05;
+                return;
+              }
+              if (msg.type === 'status') {
+                if (msg.state === 'listening') {
+                  setOrb('listening');
+                  setStatus(msg.text || 'جاري الاستماع…');
+                } else if (msg.state === 'thinking') {
+                  setOrb('thinking');
+                  setStatus(msg.text || 'جاري التفكير…');
+                } else if (msg.state === 'speaking') {
+                  inTts = true;
+                  setOrb('speaking');
+                  setStatus(msg.text || 'جاري الإرسال الصوتي…');
+                } else if (msg.state === 'idle') {
+                  inTts = false;
+                  if (micOn) setOrb('listening');
+                  else setOrb('idle');
+                  setStatus(msg.text || 'جاهز');
+                }
+              } else if (msg.type === 'transcript' && msg.text) {
+                appendBubble('user', msg.text);
+              } else if (msg.type === 'assistant' && msg.text) {
+                appendBubble('assistant', msg.text);
+              } else if (msg.type === 'properties') {
+                renderProperties(msg.items);
+              } else if (msg.type === 'lead' && msg.payload) {
+                const p = msg.payload;
+                const parts = [];
+                if (p.cx_name) parts.push('الاسم: ' + p.cx_name);
+                if (p.cx_email) parts.push('البريد: ' + p.cx_email);
+                if (p.budget) parts.push('الميزانية: ' + formatPrice(p.budget));
+                if (p.location) parts.push('الموقع: ' + p.location);
+                if (p.matched_property_summary) parts.push(p.matched_property_summary);
+                appendBubble(
+                  'assistant',
+                  '📋 تم تسجيل الطلب: ' + (parts.join(' · ') || JSON.stringify(p))
+                );
+              } else if (msg.type === 'tts_complete') {
+                inTts = false;
+                if (micOn) setOrb('listening');
+                else setOrb('idle');
+              } else if (msg.type === 'error') {
+                appendBubble('assistant', 'حدث خطأ: ' + (msg.detail || ''));
+              }
+            } catch (_) {
+              console.warn('Non-JSON websocket message');
+            }
+          };
+
+        ws.onclose = () => {
+          ws = null;
+          stopMic();
+          setStatus('انقطع الاتصال — أعد تشغيل الميكروفون');
+        };
+
+        ws.onerror = () => setStatus('خطأ في الاتصال');
+        });
+      }
+
+      micBtn.addEventListener('click', async () => {
+        try {
+          await connectWs();
+        } catch (e) {
+          console.error(e);
+          alert('فشل الاتصال بالخادم');
+          return;
+        }
+        if (!micOn) {
+          try {
+            await startMic();
+          } catch (e) {
+            alert('لم نتمكن من الوصول للميكروفون.');
+            console.error(e);
+          }
+        } else {
+          stopMic();
+        }
+      });
+
+      window.addEventListener('beforeunload', () => stopMic());
+    })();
+  </script>
+</body>
+</html>
