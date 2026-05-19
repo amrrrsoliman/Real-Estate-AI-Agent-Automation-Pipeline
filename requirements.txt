@@ -1,5 +1,0 @@
-# Core voice assistant dependencies
-edge-tts>=6.1.0
-requests>=2.31.0
-python-dotenv>=1.0.0
-miniaudio>=1.61
