@@ -1,6 +1,4 @@
-"""
-Web UI: Deepgram STT + linear conversation state machine + Edge TTS (sole speech engine).
-"""
+
 
 from __future__ import annotations
 
