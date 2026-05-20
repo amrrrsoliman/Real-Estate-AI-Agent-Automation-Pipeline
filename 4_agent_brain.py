@@ -31,7 +31,7 @@ from langgraph.graph.message import MessagesState
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-API_KEY = "AIzaSyAQv-el6POSfeE7XWKo_lfpsGHinTS6Mic"
+API_KEY = "####################################33"
 GEMINI_MODEL = 'gemini-2.5-flash'
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 COLLECTION_NAME = "properties"
